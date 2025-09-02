@@ -3,7 +3,9 @@ import CustomError from '../../classes/CustomError';
 import {User} from '@sharedTypes/DBTypes';
 import {UserResponse} from '@sharedTypes/MessageTypes';
 import fetchData from '../../utils/fetchData';
-// TODO: Import necessary types and models
+import OTPAuth from 'otpauth';
+import twoFAModel from '../models/twoFAModel';
+import QRCode from 'qrcode';
 
 // TODO: Define setupTwoFA function
 const setupTwoFA = async (
@@ -26,10 +28,32 @@ const setupTwoFA = async (
     );
 
     console.log('userResponse', userRespose);
+
     // TODO: Generate a new 2FA secret
+    const secret = new OTPAuth.Secret();
+
     // TODO: Create the TOTP instance
+    const totp = new OTPAuth.TOTP({
+      issuer: 'ElukkaAPI',
+      label: userRespose.user.email,
+      algorithm: 'SHA1',
+      digits: 6,
+      period: 30,
+      secret,
+    });
+
     // TODO: Store or update the 2FA data in the database
+    await twoFAModel.create({
+      email: userRespose.user.email,
+      userId: userRespose.user.user_id,
+      twoFactorEnabled: true,
+      twoFactorSecret: secret.base32,
+    });
+
     // TODO: Generate a QR code and send it in the response
+    const imageUrl = await QRCode.toDataURL(totp.toString());
+
+    res.json({qrCodeUrl: imageUrl});
   } catch (error) {
     next(new CustomError((error as Error).message, 500));
   }
